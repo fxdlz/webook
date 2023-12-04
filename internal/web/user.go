@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
-	"unicode/utf8"
 	"webook/internal/domain"
 	"webook/internal/service"
 )
@@ -113,6 +112,13 @@ func (h *UserHandler) Login(ctx *gin.Context) {
 	return
 }
 
+type UserInfo struct {
+	Email    string
+	Nickname string
+	Birthday string
+	Profile  string
+}
+
 func (h *UserHandler) Edit(ctx *gin.Context) {
 	type EditReq struct {
 		Nickname string `json:"nickname"`
@@ -121,14 +127,6 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 	}
 	req := EditReq{}
 	if err := ctx.Bind(&req); err != nil {
-		return
-	}
-	if utf8.RuneCountInString(req.Nickname) > 10 {
-		ctx.String(http.StatusOK, "昵称长度不能超过10")
-		return
-	}
-	if utf8.RuneCountInString(req.Profile) > 300 {
-		ctx.String(http.StatusOK, "个人简介不能超过300")
 		return
 	}
 	layout := "2006-01-02"
@@ -143,7 +141,7 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "系统异常")
 		return
 	}
-	u, err := h.svc.Edit(ctx.Request.Context(), domain.User{
+	err := h.svc.Edit(ctx.Request.Context(), domain.User{
 		Id:       v,
 		Nickname: req.Nickname,
 		Birthday: req.Birthday,
@@ -151,7 +149,7 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 	})
 	switch err {
 	case nil:
-		ctx.JSON(http.StatusOK, u)
+		ctx.JSON(http.StatusOK, "修改成功")
 	default:
 		ctx.String(http.StatusOK, "系统错误")
 	}
@@ -167,9 +165,15 @@ func (h *UserHandler) Profile(ctx *gin.Context) {
 		return
 	}
 	u, err := h.svc.Profile(ctx.Request.Context(), v)
+
 	switch err {
 	case nil:
-		ctx.JSON(http.StatusOK, u)
+		ctx.JSON(http.StatusOK, UserInfo{
+			Email:    u.Email,
+			Nickname: u.Nickname,
+			Birthday: u.Birthday,
+			Profile:  u.Profile,
+		})
 	default:
 		ctx.String(http.StatusOK, "系统错误")
 	}

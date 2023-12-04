@@ -41,9 +41,9 @@ func (dao *UserDAO) FindByEmail(ctx context.Context, email string) (User, error)
 	return u, err
 }
 
-func (dao *UserDAO) Update(ctx context.Context, u User) (User, error) {
+func (dao *UserDAO) Update(ctx context.Context, u User) error {
 	err := dao.db.WithContext(ctx).Model(&u).Updates(map[string]interface{}{"nickname": u.Nickname, "birthday": u.Birthday, "profile": u.Profile}).Error
-	return u, err
+	return err
 }
 
 func (dao *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
@@ -56,9 +56,9 @@ type User struct {
 	Id       int64  `gorm:"primaryKey,autoIncrement"`
 	Email    string `gorm:"unique"`
 	Password string
-	Nickname string
+	Nickname string `gorm:"type=varchar(10)"`
 	Birthday string
-	Profile  string
+	Profile  string `gorm:"type=varchar(300)"`
 	Ctime    int64
 	Utime    int64
 }

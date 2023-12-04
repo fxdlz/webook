@@ -49,17 +49,14 @@ func (repo *UserRepository) toDomain(u dao.User) domain.User {
 	}
 }
 
-func (repo *UserRepository) Update(ctx context.Context, u domain.User) (domain.User, error) {
-	newUser, err := repo.dao.Update(ctx, dao.User{
+func (repo *UserRepository) Update(ctx context.Context, u domain.User) error {
+	err := repo.dao.Update(ctx, dao.User{
 		Id:       u.Id,
 		Nickname: u.Nickname,
 		Birthday: u.Birthday,
 		Profile:  u.Profile,
 	})
-	if err != nil {
-		return domain.User{}, err
-	}
-	return repo.toDomain(newUser), nil
+	return err
 }
 
 func (repo *UserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
