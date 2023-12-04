@@ -115,7 +115,6 @@ func (h *UserHandler) Login(ctx *gin.Context) {
 
 func (h *UserHandler) Edit(ctx *gin.Context) {
 	type EditReq struct {
-		Id       int64  `json:"id"`
 		Nickname string `json:"nickname"`
 		Birthday string `json:"birthday"`
 		Profile  string `json:"profile"`
@@ -137,8 +136,15 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "日期格式不符合规范")
 		return
 	}
+	sess := sessions.Default(ctx)
+	userId := sess.Get("userId")
+	v, ok := userId.(int64)
+	if !ok {
+		ctx.String(http.StatusOK, "系统异常")
+		return
+	}
 	u, err := h.svc.Edit(ctx.Request.Context(), domain.User{
-		Id:       req.Id,
+		Id:       v,
 		Nickname: req.Nickname,
 		Birthday: req.Birthday,
 		Profile:  req.Profile,
@@ -153,8 +159,14 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 }
 
 func (h *UserHandler) Profile(ctx *gin.Context) {
-	id := ctx.Query("id")
-	u, err := h.svc.Profile(ctx.Request.Context(), id)
+	sess := sessions.Default(ctx)
+	userId := sess.Get("userId")
+	v, ok := userId.(int64)
+	if !ok {
+		ctx.String(http.StatusOK, "系统异常")
+		return
+	}
+	u, err := h.svc.Profile(ctx.Request.Context(), v)
 	switch err {
 	case nil:
 		ctx.JSON(http.StatusOK, u)

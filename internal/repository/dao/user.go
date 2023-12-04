@@ -46,7 +46,7 @@ func (dao *UserDAO) Update(ctx context.Context, u User) (User, error) {
 	return u, err
 }
 
-func (dao *UserDAO) FindById(ctx context.Context, id string) (User, error) {
+func (dao *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
 	u := User{}
 	err := dao.db.WithContext(ctx).Where("id=?", id).First(&u).Error
 	return u, err
