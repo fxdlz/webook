@@ -4,6 +4,7 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"time"
 	"webook/internal/domain"
@@ -33,9 +34,10 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) RegisterRoutes(server *gin.Engine) {
-	ug := server.Group("/user")
+	ug := server.Group("/users")
 	ug.POST("/signup", h.SignUp)
-	ug.POST("/login", h.Login)
+	//ug.POST("/login", h.Login)
+	ug.POST("/login", h.LoginJWT)
 	ug.POST("/edit", h.Edit)
 	ug.GET("/profile", h.Profile)
 }
@@ -53,19 +55,24 @@ func (h *UserHandler) SignUp(ctx *gin.Context) {
 	ok, err := h.emailExp.MatchString(req.Email)
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
+		return
 	}
 	if !ok {
 		ctx.String(http.StatusOK, "邮箱不正确")
+		return
 	}
 	if req.Password != req.ConfirmPassword {
 		ctx.String(http.StatusOK, "两次输入的密码不一致")
+		return
 	}
-	ok, err = h.emailExp.MatchString(req.Password)
+	ok, err = h.passwordExp.MatchString(req.Password)
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
+		return
 	}
 	if !ok {
 		ctx.String(http.StatusOK, "密码必须大于8位，包含数字、特殊字符")
+		return
 	}
 	err = h.svc.Signup(ctx.Request.Context(), domain.User{
 		Email:    req.Email,
@@ -83,6 +90,40 @@ func (h *UserHandler) SignUp(ctx *gin.Context) {
 
 }
 
+func (h *UserHandler) LoginJWT(ctx *gin.Context) {
+	type Req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	req := Req{}
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	u, err := h.svc.Login(ctx.Request.Context(), req.Email, req.Password)
+	switch err {
+	case nil:
+		uc := UserClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * 90)),
+			},
+			Uid:       u.Id,
+			UserAgent: ctx.GetHeader("User-Agent"),
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS512, uc)
+		tokenStr, err := token.SignedString(JWTKey)
+		if err != nil {
+			ctx.String(http.StatusOK, "系统错误")
+		}
+		ctx.Header("x-jwt-token", tokenStr)
+		ctx.String(http.StatusOK, "登录成功")
+	case service.ErrInvalidUserOrPassword:
+		ctx.String(http.StatusOK, "用户名或密码不正确")
+	default:
+		ctx.String(http.StatusOK, "系统错误")
+	}
+	return
+}
+
 func (h *UserHandler) Login(ctx *gin.Context) {
 	type Req struct {
 		Email    string `json:"email"`
@@ -97,7 +138,7 @@ func (h *UserHandler) Login(ctx *gin.Context) {
 	case nil:
 		sess := sessions.Default(ctx)
 		sess.Set("userId", u.Id)
-		sess.Options(sessions.Options{MaxAge: 900})
+		sess.Options(sessions.Options{MaxAge: 90})
 		err = sess.Save()
 		if err != nil {
 			ctx.String(http.StatusOK, "系统错误")
@@ -157,13 +198,15 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 }
 
 func (h *UserHandler) Profile(ctx *gin.Context) {
-	sess := sessions.Default(ctx)
-	userId := sess.Get("userId")
-	v, ok := userId.(int64)
-	if !ok {
-		ctx.String(http.StatusOK, "系统异常")
-		return
-	}
+	uc := ctx.MustGet("user").(UserClaims)
+	v := uc.Uid
+	//sess := sessions.Default(ctx)
+	//userId := sess.Get("userId")
+	//v, ok := userId.(int64)
+	//if !ok {
+	//	ctx.String(http.StatusOK, "系统异常")
+	//	return
+	//}
 	u, err := h.svc.Profile(ctx.Request.Context(), v)
 
 	switch err {
@@ -179,3 +222,11 @@ func (h *UserHandler) Profile(ctx *gin.Context) {
 	}
 	return
 }
+
+type UserClaims struct {
+	jwt.RegisteredClaims
+	Uid       int64
+	UserAgent string
+}
+
+var JWTKey = []byte("tD1vD9qI5bF9fX8fH5nJ6yH4FF2dD6uM")
