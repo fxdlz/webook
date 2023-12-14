@@ -7,4 +7,5 @@ type User struct {
 	Nickname string
 	Birthday string
 	Profile  string
+	Phone    string
 }

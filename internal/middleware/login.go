@@ -20,6 +20,7 @@ func (m *LoginMiddlewareBuilder) CheckLogin() gin.HandlerFunc {
 		if path == "/users/signup" || path == "/users/login" {
 			return
 		}
+		return
 		sess := sessions.Default(ctx)
 		userId := sess.Get("userId")
 		if userId == nil {
