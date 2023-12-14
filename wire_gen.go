@@ -2,6 +2,7 @@
 
 //go:generate go run github.com/google/wire/cmd/wire
 //go:build !wireinject
+// +build !wireinject
 
 package main
 
@@ -21,14 +22,14 @@ func InitWebServer() *gin.Engine {
 	cmdable := ioc.InitRedis()
 	v := ioc.InitGinMiddleWares(cmdable)
 	db := ioc.InitDB()
-	userDAO := dao.NewUserDAO(db)
-	userCache := cache.NewUserCache(cmdable)
-	userRepository := repository.NewUserRepository(userDAO, userCache)
-	userService := service.NewUserService(userRepository)
-	codeCache := cache.NewCodeCache(cmdable)
-	codeRepository := repository.NewCodeRepository(codeCache)
+	userDAO := dao.NewGORMUserDAO(db)
+	userCache := cache.NewRedisUserCache(cmdable)
+	userRepository := repository.NewCacheUserRepository(userDAO, userCache)
+	userService := service.NewCacheUserService(userRepository)
+	codeCache := cache.NewRedisCodeCache(cmdable)
+	codeRepository := repository.NewCacheCodeRepository(codeCache)
 	smsService := ioc.InitSMSService()
-	codeService := service.NewCodeService(codeRepository, smsService)
+	codeService := service.NewCacheCodeService(codeRepository, smsService)
 	userHandler := web.NewUserHandler(userService, codeService)
 	engine := ioc.InitWebServer(v, userHandler)
 	return engine
