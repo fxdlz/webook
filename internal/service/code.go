@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"time"
 	"webook/internal/repository"
 	"webook/internal/service/sms"
 )
@@ -49,6 +50,7 @@ func (svc *CacheCodeService) Verify(ctx context.Context, biz, phone, inputCode s
 }
 
 func (svc *CacheCodeService) generateCode() string {
+	rand.Seed(time.Now().UnixMilli())
 	code := rand.Intn(1000000)
 	return fmt.Sprintf("%06d", code)
 }
