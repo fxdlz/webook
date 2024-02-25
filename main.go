@@ -1,9 +1,14 @@
 package main
 
 import (
+	"github.com/fsnotify/fsnotify"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+	_ "github.com/spf13/viper/remote"
+	"go.uber.org/zap"
+	"log"
 	"webook/internal/middleware"
 )
 
@@ -12,6 +17,9 @@ func main() {
 	//for i := 0; i < 1000; i++ {
 	//	tools.Mt.InsertUserN(1000)
 	//}
+	//initViper()
+	//initViperRemote()
+	initViperWatch()
 	server := InitWebServer()
 	server.Run(":8080")
 }
@@ -37,4 +45,48 @@ func useSession(server *gin.Engine) {
 
 	login := middleware.LoginMiddlewareBuilder{}
 	server.Use(login.CheckLogin())
+}
+
+func initViper() {
+	viper.SetConfigType("yaml")
+	viper.SetConfigName("dev")
+	viper.AddConfigPath("config")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func initViperRemote() {
+	err := viper.AddRemoteProvider("etcd3", "http://127.0.0.1:12379", "/webook")
+	if err != nil {
+		panic(err)
+	}
+	viper.SetConfigType("yaml")
+	err = viper.ReadRemoteConfig()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func initViperWatch() {
+	viper.SetConfigType("yaml")
+	viper.SetConfigName("dev")
+	viper.AddConfigPath("config")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		log.Println(viper.GetString("test.key"))
+	})
+	viper.WatchConfig()
+}
+
+func initLogger() {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	zap.ReplaceGlobals(logger)
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"time"
 	"webook/internal/domain"
-	"webook/internal/repository/dao"
 )
 
 var ErrKeyNotExist = redis.Nil
@@ -15,7 +14,7 @@ var ErrKeyNotExist = redis.Nil
 type UserCache interface {
 	key(id int64) string
 	Get(ctx context.Context, id int64) (domain.User, error)
-	Set(ctx context.Context, u dao.User) error
+	Set(ctx context.Context, u domain.User) error
 }
 
 type RedisUserCache struct {
@@ -38,7 +37,7 @@ func (c *RedisUserCache) Get(ctx context.Context, id int64) (domain.User, error)
 	return u, err
 }
 
-func (c *RedisUserCache) Set(ctx context.Context, u dao.User) error {
+func (c *RedisUserCache) Set(ctx context.Context, u domain.User) error {
 	key := c.key(u.Id)
 	data, err := json.Marshal(u)
 	if err != nil {

@@ -16,4 +16,4 @@ grpc:
 #      全部都走grpc调用
       threshold: 100
 
-test: "hello,babc"
+test: "hello,abcd"

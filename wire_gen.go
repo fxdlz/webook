@@ -8,20 +8,28 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/wire"
 	"webook/internal/repository"
 	"webook/internal/repository/cache"
 	"webook/internal/repository/dao"
 	"webook/internal/service"
 	"webook/internal/web"
+	"webook/internal/web/jwt"
 	"webook/ioc"
+)
+
+import (
+	_ "github.com/spf13/viper/remote"
 )
 
 // Injectors from wire.go:
 
 func InitWebServer() *gin.Engine {
 	cmdable := ioc.InitRedis()
-	v := ioc.InitGinMiddleWares(cmdable)
-	db := ioc.InitDB()
+	handler := jwt.NewRedisJWTHandler(cmdable)
+	loggerV1 := ioc.InitLogger()
+	v := ioc.InitGinMiddleWares(cmdable, handler, loggerV1)
+	db := ioc.InitDB(loggerV1)
 	userDAO := dao.NewGORMUserDAO(db)
 	userCache := cache.NewRedisUserCache(cmdable)
 	userRepository := repository.NewCacheUserRepository(userDAO, userCache)
@@ -31,7 +39,22 @@ func InitWebServer() *gin.Engine {
 	codeRepository := repository.NewCacheCodeRepository(codeCache)
 	smsService := ioc.InitSMSService()
 	codeService := service.NewCacheCodeService(codeRepository, smsService)
-	userHandler := web.NewUserHandler(userService, codeService)
-	engine := ioc.InitWebServer(v, userHandler)
+	userHandler := web.NewUserHandler(userService, codeService, handler)
+	wechatService := ioc.InitWechatService()
+	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, handler)
+	articleDAO := dao.NewArticleGORMDAO(db)
+	articleCache := cache.NewArticleRedisCache(cmdable)
+	articleRepository := repository.NewCacheArticleRepository(articleDAO, userRepository, articleCache)
+	articleService := service.NewArticleService(articleRepository)
+	interactiveDAO := dao.NewGORMInteractiveDAO(db)
+	interactiveCache := cache.NewInteractiveRedisCache(cmdable)
+	interactiveRepository := repository.NewCachedInteractiveRepository(interactiveDAO, interactiveCache)
+	interactiveService := service.NewInteractiveService(interactiveRepository)
+	articleHandler := web.NewArticleHandler(articleService, interactiveService, loggerV1)
+	engine := ioc.InitWebServer(v, userHandler, oAuth2WechatHandler, articleHandler)
 	return engine
 }
+
+// wire.go:
+
+var interactiveSvcSet = wire.NewSet(service.NewInteractiveService, repository.NewCachedInteractiveRepository, cache.NewInteractiveRedisCache, dao.NewGORMInteractiveDAO)

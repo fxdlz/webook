@@ -19,9 +19,25 @@ type UserService interface {
 	Edit(ctx context.Context, u domain.User) error
 	Profile(ctx context.Context, id int64) (domain.User, error)
 	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
+	FindOrCreateByWechat(ctx context.Context, wechatInfo domain.WechatInfo) (domain.User, error)
 }
 type CacheUserService struct {
 	repo repository.UserRepository
+}
+
+func (svc *CacheUserService) FindOrCreateByWechat(ctx context.Context, wechatInfo domain.WechatInfo) (domain.User, error) {
+	u, err := svc.repo.FindByWechat(ctx, wechatInfo.OpenId)
+	if err != repository.ErrUserNotFound {
+		return u, err
+	}
+	err = svc.repo.Create(ctx, domain.User{
+		WechatInfo: wechatInfo,
+	})
+	if err != nil && err != repository.ErrDuplicateUser {
+		return domain.User{}, err
+	}
+
+	return svc.repo.FindByWechat(ctx, wechatInfo.OpenId)
 }
 
 func NewCacheUserService(repo repository.UserRepository) UserService {
