@@ -1,9 +1,11 @@
 package web
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gotomicro/ekit/slice"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/singleflight"
 	"net/http"
 	"strconv"
 	"time"
@@ -40,6 +42,8 @@ func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	pub.GET("/:id", h.PubDetail)
 	pub.POST("/like", h.Like)
 	pub.POST("/collect", h.Collect)
+	pub.GET("/like-top/:num", h.LikeTopN)
+	pub.GET("/cron-cache-like-top/:num", h.CronCacheLikeTopN)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
@@ -236,13 +240,14 @@ func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
 		art  domain.Article
 		intr domain.Interactive
 	)
-	eg.Go(func() error {
-		var er error
-		art, er = h.svc.GetPubById(ctx, id)
-		return er
-	})
 
 	uc := ctx.MustGet("user").(jwt.UserClaims)
+
+	eg.Go(func() error {
+		var er error
+		art, er = h.svc.GetPubById(ctx, uc.Uid, id)
+		return er
+	})
 
 	eg.Go(func() error {
 		var er error
@@ -263,11 +268,11 @@ func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
 		return
 	}
 
-	err = h.intrSvc.IncrReadCnt(ctx, "", art.Id)
-	if err != nil {
-		//记录日志
-		h.log.Error("更新阅读数失败", logger.Int64("aid", art.Id), logger.Error(err))
-	}
+	//err = h.intrSvc.IncrReadCnt(ctx, h.biz, art.Id)
+	//if err != nil {
+	//	//记录日志
+	//	h.log.Error("更新阅读数失败", logger.Int64("aid", art.Id), logger.Error(err))
+	//}
 
 	ctx.JSON(http.StatusOK, Result{
 		Data: ArticleVO{
@@ -344,6 +349,80 @@ func (h *ArticleHandler) Collect(ctx *gin.Context) {
 			logger.Int64("aid", req.Id))
 		return
 	}
+	ctx.JSON(http.StatusOK, Result{
+		Msg: "OK",
+	})
+}
+
+func (h *ArticleHandler) LikeTopN(ctx *gin.Context) {
+	numStr := ctx.Param("num")
+	num, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Msg:  "num参数错误",
+			Code: 5,
+		})
+		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
+		return
+	}
+	var g singleflight.Group
+	lintrs, err, _ := g.Do(fmt.Sprintf("like:%s:%d", h.biz, num), func() (interface{}, error) {
+		data, er := h.intrSvc.LikeTopN(ctx, h.biz, num)
+		return data, er
+	})
+	intrs := lintrs.([]domain.InteractiveArticle)
+	res := make([]ArticleVO, len(intrs))
+	for i, intr := range intrs {
+		art, er := h.svc.GetById(ctx, intr.Id)
+		if er != nil {
+			res[i] = ArticleVO{
+				Id:         intr.Id,
+				ReadCnt:    intr.ReadCnt,
+				LikeCnt:    intr.LikeCnt,
+				CollectCnt: intr.CollectCnt,
+			}
+			h.log.Error("获取文章数据失败", logger.Error(er), logger.Int64("id", intr.Id))
+		} else {
+			res[i] = ArticleVO{
+				Id:         intr.Id,
+				Title:      art.Title,
+				Content:    art.Content,
+				AuthorId:   art.Author.Id,
+				AuthorName: art.Author.Name,
+				Status:     art.Status.ToUint8(),
+				ReadCnt:    intr.ReadCnt,
+				LikeCnt:    intr.LikeCnt,
+				CollectCnt: intr.CollectCnt,
+				Ctime:      art.Ctime.Format(time.DateTime),
+				Utime:      art.Utime.Format(time.DateTime),
+			}
+		}
+	}
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Msg:  "系统错误",
+			Code: 5,
+		})
+		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Data: res,
+	})
+}
+
+func (h *ArticleHandler) CronCacheLikeTopN(ctx *gin.Context) {
+	numStr := ctx.Param("num")
+	num, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Msg:  "num参数错误",
+			Code: 5,
+		})
+		h.log.Error("启动缓存前N个点赞文章定时任务失败", logger.Error(err))
+		return
+	}
+	h.intrSvc.CronUpdateCacheLikeTopN(ctx, h.biz, num)
 	ctx.JSON(http.StatusOK, Result{
 		Msg: "OK",
 	})

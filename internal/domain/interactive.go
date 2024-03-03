@@ -7,3 +7,10 @@ type Interactive struct {
 	Liked      bool
 	Collected  bool
 }
+
+type InteractiveArticle struct {
+	Id         int64
+	ReadCnt    int64
+	LikeCnt    int64
+	CollectCnt int64
+}

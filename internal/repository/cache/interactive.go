@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"strconv"
@@ -24,10 +25,36 @@ type InteractiveCache interface {
 	IncrCollectCntIfPresent(ctx context.Context, biz string, id int64) error
 	Get(ctx context.Context, biz string, id int64) (domain.Interactive, error)
 	Set(ctx context.Context, biz string, id int64, res domain.Interactive) error
+	GetLikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error)
+	SetLikeTopN(ctx context.Context, biz string, num int64, data []domain.InteractiveArticle) error
 }
 
 type InteractiveRedisCache struct {
 	client redis.Cmdable
+}
+
+func (i *InteractiveRedisCache) SetLikeTopN(ctx context.Context, biz string, num int64, data []domain.InteractiveArticle) error {
+	arts, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	key := i.LikeTopNKey(biz, num)
+	return i.client.Set(ctx, key, arts, 0).Err()
+}
+
+func (i *InteractiveRedisCache) GetLikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error) {
+	key := i.LikeTopNKey(biz, num)
+	val, err := i.client.Get(ctx, key).Bytes()
+	if err != nil {
+		return []domain.InteractiveArticle{}, err
+	}
+	var res []domain.InteractiveArticle
+	err = json.Unmarshal(val, &res)
+	return res, err
+}
+
+func (i *InteractiveRedisCache) LikeTopNKey(biz string, num int64) string {
+	return fmt.Sprintf("interactive:like:top:%s:%d", biz, num)
 }
 
 func (i *InteractiveRedisCache) IncrLikeCntIfPresent(ctx context.Context, biz string, id int64) error {
@@ -81,7 +108,8 @@ func (i *InteractiveRedisCache) IncrCollectCntIfPresent(ctx context.Context, biz
 
 func (i *InteractiveRedisCache) IncrReadCntIfPresent(ctx context.Context, biz string, bizId int64) error {
 	key := i.key(biz, bizId)
-	return i.client.Eval(ctx, luaCnt, []string{key}, fieldReadCnt, 1).Err()
+	err := i.client.Eval(ctx, luaCnt, []string{key}, fieldReadCnt, 1).Err()
+	return err
 }
 
 func (i *InteractiveRedisCache) key(biz string, bizId int64) string {

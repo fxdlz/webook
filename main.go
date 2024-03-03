@@ -17,10 +17,17 @@ func main() {
 	//for i := 0; i < 1000; i++ {
 	//	tools.Mt.InsertUserN(1000)
 	//}
-	//initViper()
+	initViper()
 	//initViperRemote()
-	initViperWatch()
-	server := InitWebServer()
+	//initViperWatch()
+	app := InitApp()
+	for _, c := range app.consumers {
+		err := c.Start()
+		if err != nil {
+			panic(err)
+		}
+	}
+	server := app.server
 	server.Run(":8080")
 }
 

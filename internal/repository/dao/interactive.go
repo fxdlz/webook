@@ -15,10 +15,18 @@ type InteractiveDAO interface {
 	Get(ctx context.Context, biz string, id int64) (Interactive, error)
 	GetLikedInfo(ctx context.Context, biz string, id int64, uid int64) (UserLikeBiz, error)
 	GetCollectInfo(ctx context.Context, biz string, id int64, uid int64) (UserCollectionBiz, error)
+	BatchIncrReadCnt(ctx context.Context, bizs []string, ids []int64) error
+	GetLikeTopN(ctx context.Context, biz string, num int) ([]Interactive, error)
 }
 
 type GORMInteractiveDAO struct {
 	db *gorm.DB
+}
+
+func (g *GORMInteractiveDAO) GetLikeTopN(ctx context.Context, biz string, num int) ([]Interactive, error) {
+	var res []Interactive
+	err := g.db.WithContext(ctx).Where("biz=?", biz).Order("like_cnt desc").Limit(num).Find(&res).Error
+	return res, err
 }
 
 func (g *GORMInteractiveDAO) InsertLikeInfo(ctx context.Context, biz string, bizId int64, uid int64) error {
@@ -137,6 +145,19 @@ func (g *GORMInteractiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId 
 		Ctime:   now,
 		Utime:   now,
 	}).Error
+}
+
+func (g *GORMInteractiveDAO) BatchIncrReadCnt(ctx context.Context, bizs []string, ids []int64) error {
+	return g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txDAO := NewGORMInteractiveDAO(tx)
+		for i := 0; i < len(bizs); i++ {
+			err := txDAO.IncrReadCnt(ctx, bizs[i], ids[i])
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 type Interactive struct {

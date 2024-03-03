@@ -69,7 +69,7 @@ func TestArticleHandler_Publish(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			ctrl := gomock.NewController(t)
 			svc := tc.mock(ctrl)
-			hdl := NewArticleHandler(svc, logger.NewNopLogger())
+			hdl := NewArticleHandler(svc, nil, logger.NewNopLogger())
 			server := gin.Default()
 			server.Use(func(ctx *gin.Context) {
 				ctx.Set("user", ijwt.UserClaims{

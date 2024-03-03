@@ -13,6 +13,8 @@ type InteractiveService interface {
 	CancelLike(ctx context.Context, biz string, id int64, uid int64) error
 	Collect(ctx context.Context, biz string, id, cid, uid int64) error
 	Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error)
+	LikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error)
+	CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64)
 }
 
 type interactiveService struct {
@@ -21,6 +23,14 @@ type interactiveService struct {
 
 func NewInteractiveService(repo repository.InteractiveRepository) InteractiveService {
 	return &interactiveService{repo: repo}
+}
+
+func (i *interactiveService) CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64) {
+	i.repo.CronUpdateCacheLikeTopN(ctx, biz, num)
+}
+
+func (i *interactiveService) LikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error) {
+	return i.repo.LikeTopN(ctx, biz, num)
 }
 
 func (i *interactiveService) Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error) {

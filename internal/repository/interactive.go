@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"time"
 	"webook/internal/domain"
 	"webook/internal/repository/cache"
 	"webook/internal/repository/dao"
@@ -16,12 +18,65 @@ type InteractiveRepository interface {
 	Get(ctx context.Context, biz string, id int64) (domain.Interactive, error)
 	Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error)
 	Collected(ctx context.Context, biz string, id int64, uid int64) (bool, error)
+	BatchIncrReadCnt(ctx context.Context, bizs []string, ids []int64) error
+	LikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error)
+	CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64)
 }
 
 type CachedInteractiveRepository struct {
 	dao   dao.InteractiveDAO
 	cache cache.InteractiveCache
 	log   logger.LoggerV1
+}
+
+func (c *CachedInteractiveRepository) CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64) {
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				arts, er := c.dao.GetLikeTopN(ctx, biz, int(num))
+				if er != nil {
+					c.log.Error("获取点赞topN文章数据失败", logger.Error(er))
+				}
+				data := make([]domain.InteractiveArticle, len(arts))
+				for i, art := range arts {
+					data[i] = c.toDomainV2(art)
+				}
+				er = c.cache.SetLikeTopN(ctx, biz, num, data)
+				if er != nil {
+					c.log.Error("缓存点赞topN文章数据失败", logger.Error(er))
+				} else {
+					fmt.Println("缓存点赞topN文章数据成功 time:", time.Now().String())
+					//c.log.Info("缓存点赞topN文章数据成功", logger.String("time", time.Now().String()))
+				}
+			default:
+			}
+		}
+	}()
+}
+
+func (c *CachedInteractiveRepository) LikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error) {
+	intrs, err := c.cache.GetLikeTopN(ctx, biz, num)
+	if err == nil {
+		return intrs, nil
+	}
+	ies, err := c.dao.GetLikeTopN(ctx, biz, int(num))
+	if err != nil {
+		return []domain.InteractiveArticle{}, nil
+	}
+	res := make([]domain.InteractiveArticle, len(ies))
+	for i, ie := range ies {
+		res[i] = c.toDomainV2(ie)
+	}
+	go func() {
+		er := c.cache.SetLikeTopN(ctx, biz, num, res)
+		if er != nil {
+			c.log.Error("点赞Top文章缓存失败", logger.Error(er))
+		}
+	}()
+	return res, nil
 }
 
 func NewCachedInteractiveRepository(dao dao.InteractiveDAO, cache cache.InteractiveCache) InteractiveRepository {
@@ -106,8 +161,35 @@ func (c *CachedInteractiveRepository) IncrReadCnt(ctx context.Context, biz strin
 	return c.cache.IncrReadCntIfPresent(ctx, biz, bizId)
 }
 
+func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, bizs []string, ids []int64) error {
+	err := c.dao.BatchIncrReadCnt(ctx, bizs, ids)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		for i := 0; i < len(bizs); i++ {
+			er := c.cache.IncrReadCntIfPresent(ctx, bizs[i], ids[i])
+			if er != nil {
+				c.log.Error("阅读数增加写缓存失败", logger.Error(er))
+			}
+		}
+	}()
+	return nil
+}
+
 func (c *CachedInteractiveRepository) toDomain(ie dao.Interactive) domain.Interactive {
 	return domain.Interactive{
+		ReadCnt:    ie.ReadCnt,
+		LikeCnt:    ie.LikeCnt,
+		CollectCnt: ie.CollectCnt,
+	}
+}
+
+func (c *CachedInteractiveRepository) toDomainV2(ie dao.Interactive) domain.InteractiveArticle {
+	return domain.InteractiveArticle{
+		Id:         ie.BizId,
 		ReadCnt:    ie.ReadCnt,
 		LikeCnt:    ie.LikeCnt,
 		CollectCnt: ie.CollectCnt,

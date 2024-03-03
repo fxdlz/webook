@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
+	"webook/internal/events/article"
 	"webook/internal/repository"
 	"webook/internal/repository/cache"
 	"webook/internal/repository/dao"
@@ -14,12 +14,22 @@ import (
 	"webook/ioc"
 )
 
-var interactiveSvcSet = wire.NewSet(service.NewInteractiveService, repository.NewCachedInteractiveRepository, cache.NewInteractiveRedisCache, dao.NewGORMInteractiveDAO)
+var interactiveSvcSet = wire.NewSet(
+	service.NewInteractiveService,
+	repository.NewCachedInteractiveRepository,
+	cache.NewInteractiveRedisCache,
+	dao.NewGORMInteractiveDAO,
+)
 
-func InitWebServer() *gin.Engine {
+func InitApp() *App {
 	wire.Build(
 		ioc.InitLogger,
 		ioc.InitDB, ioc.InitRedis, ioc.InitLocalMem,
+		ioc.InitSaramaClient,
+		ioc.InitSyncProducer,
+		article.NewSaramaSyncProducer,
+		article.NewInteractiveReadEventConsumer,
+		ioc.InitConsumer,
 		dao.NewArticleGORMDAO,
 		dao.NewGORMUserDAO, cache.NewRedisUserCache, cache.NewLocalCodeCache, cache.NewArticleRedisCache,
 		repository.NewCacheArticleRepository,
@@ -35,6 +45,7 @@ func InitWebServer() *gin.Engine {
 		web.NewOAuth2WechatHandler,
 		ioc.InitGinMiddleWares,
 		ioc.InitWebServer,
+		wire.Struct(new(App), "*"),
 	)
-	return gin.Default()
+	return new(App)
 }

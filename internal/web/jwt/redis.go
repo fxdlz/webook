@@ -44,7 +44,7 @@ func NewRedisJWTHandler(client redis.Cmdable) Handler {
 func (h *RedisJWTHandler) SetJWTToken(ctx *gin.Context, uid int64, ssid string) error {
 	uc := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * 90)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 		Uid:       uid,
 		UserAgent: ctx.GetHeader("User-Agent"),
