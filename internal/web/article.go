@@ -370,34 +370,6 @@ func (h *ArticleHandler) LikeTopN(ctx *gin.Context) {
 		data, er := h.intrSvc.LikeTopN(ctx, h.biz, num)
 		return data, er
 	})
-	intrs := lintrs.([]domain.InteractiveArticle)
-	res := make([]ArticleVO, len(intrs))
-	for i, intr := range intrs {
-		art, er := h.svc.GetById(ctx, intr.Id)
-		if er != nil {
-			res[i] = ArticleVO{
-				Id:         intr.Id,
-				ReadCnt:    intr.ReadCnt,
-				LikeCnt:    intr.LikeCnt,
-				CollectCnt: intr.CollectCnt,
-			}
-			h.log.Error("获取文章数据失败", logger.Error(er), logger.Int64("id", intr.Id))
-		} else {
-			res[i] = ArticleVO{
-				Id:         intr.Id,
-				Title:      art.Title,
-				Content:    art.Content,
-				AuthorId:   art.Author.Id,
-				AuthorName: art.Author.Name,
-				Status:     art.Status.ToUint8(),
-				ReadCnt:    intr.ReadCnt,
-				LikeCnt:    intr.LikeCnt,
-				CollectCnt: intr.CollectCnt,
-				Ctime:      art.Ctime.Format(time.DateTime),
-				Utime:      art.Utime.Format(time.DateTime),
-			}
-		}
-	}
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Msg:  "系统错误",
@@ -406,6 +378,7 @@ func (h *ArticleHandler) LikeTopN(ctx *gin.Context) {
 		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
 		return
 	}
+	res := lintrs.([]domain.InteractiveArticle)
 	ctx.JSON(http.StatusOK, Result{
 		Data: res,
 	})

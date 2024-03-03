@@ -10,8 +10,6 @@ import (
 	"webook/internal/middleware"
 	"webook/internal/web"
 	ijwt "webook/internal/web/jwt"
-	"webook/pkg/ginx/middleware/ratelimit"
-	"webook/pkg/limiter"
 	"webook/pkg/logger"
 )
 
@@ -50,7 +48,7 @@ func InitGinMiddleWares(redisClient redis.Cmdable, handler ijwt.Handler, log log
 			},
 			MaxAge: 12 * time.Hour,
 		}),
-		ratelimit.NewBuilder(limiter.NewRedisSlidingWindowLimiter(redisClient, time.Second, 100)).Build(),
+		//ratelimit.NewBuilder(limiter.NewRedisSlidingWindowLimiter(redisClient, time.Second, 100)).Build(),
 		//(&middleware.LoginJWTMiddlewareBuilder{}).CheckLogin(),
 		//sessions.Sessions("ssid", cookie.NewStore([]byte(""))),
 		//sessions.Sessions("ssid", memstore.NewStore([]byte(""))),

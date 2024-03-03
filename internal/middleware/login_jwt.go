@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"strings"
 	ijwt "webook/internal/web/jwt"
 )
 
@@ -26,7 +27,8 @@ func (m *LoginJWTMiddlewareBuilder) CheckLogin() gin.HandlerFunc {
 			path == "/users/login_sms" ||
 			path == "/oauth2/wechat/authurl" ||
 			path == "/oauth2/wechat/callback" ||
-			path == "/oauth2/wechat/refresh_token" {
+			path == "/oauth2/wechat/refresh_token" ||
+			strings.HasPrefix(path, "/articles/pub/like-top/") {
 			return
 		}
 		tokenStr := m.ExtractToken(ctx)
