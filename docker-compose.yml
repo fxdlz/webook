@@ -10,6 +10,14 @@ services:
       - ./script/mysql/:/docker-entrypoint-initdb.d/
     ports:
       - "13316:3306"
+
+  prometheus:
+    image: 'prom/prometheus:v2.47.2'
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
   redis:
     image: "bitnami/redis:latest"
     restart: always

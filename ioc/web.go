@@ -1,7 +1,6 @@
 package ioc
 
 import (
-	"context"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -10,6 +9,7 @@ import (
 	"webook/internal/middleware"
 	"webook/internal/web"
 	ijwt "webook/internal/web/jwt"
+	"webook/pkg/ginx/middleware/prometheus"
 	"webook/pkg/logger"
 )
 
@@ -26,6 +26,12 @@ func InitWebServer(mdls []gin.HandlerFunc,
 }
 
 func InitGinMiddleWares(redisClient redis.Cmdable, handler ijwt.Handler, log logger.LoggerV1) []gin.HandlerFunc {
+	pb := &prometheus.Builder{
+		Namespace: "fxlz",
+		Subsystem: "webook",
+		Name:      "resp_time",
+		Help:      "请求相应时间监测",
+	}
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowHeaders: []string{
@@ -48,16 +54,18 @@ func InitGinMiddleWares(redisClient redis.Cmdable, handler ijwt.Handler, log log
 			},
 			MaxAge: 12 * time.Hour,
 		}),
+		pb.BuildResponseTime(),
+		pb.BuildActiveRequest(),
 		//ratelimit.NewBuilder(limiter.NewRedisSlidingWindowLimiter(redisClient, time.Second, 100)).Build(),
 		//(&middleware.LoginJWTMiddlewareBuilder{}).CheckLogin(),
 		//sessions.Sessions("ssid", cookie.NewStore([]byte(""))),
 		//sessions.Sessions("ssid", memstore.NewStore([]byte(""))),
 		(middleware.NewLoginJWTMiddlewareBuilder(handler)).CheckLogin(),
-		(middleware.NewLogMiddlewareBuilder(func(ctx context.Context, al middleware.AccessLog) {
-			log.Debug("", logger.Field{
-				Key: "AccessLog",
-				Val: al,
-			})
-		})).Build(),
+		//(middleware.NewLogMiddlewareBuilder(func(ctx context.Context, al middleware.AccessLog) {
+		//	log.Debug("", logger.Field{
+		//		Key: "AccessLog",
+		//		Val: al,
+		//	})
+		//})).Build(),
 	}
 }
