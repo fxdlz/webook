@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
@@ -11,7 +12,9 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"net/http"
+	"time"
 	"webook/internal/middleware"
+	"webook/ioc"
 )
 
 func main() {
@@ -23,6 +26,12 @@ func main() {
 	//initViperRemote()
 	//initViperWatch()
 	initPrometheus()
+	otelCtx := ioc.InitOTEL()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		otelCtx(ctx)
+	}()
 	app := InitApp()
 	for _, c := range app.consumers {
 		err := c.Start()
