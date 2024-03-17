@@ -7,6 +7,7 @@ import (
 	"webook/internal/repository"
 )
 
+//go:generate mockgen -source=./interactive.go -package=svcmocks -destination=./mocks/interactive.mock.go InteractiveService
 type InteractiveService interface {
 	IncrReadCnt(ctx context.Context, biz string, bizId int64) error
 	Like(ctx context.Context, biz string, id int64, uid int64) error
@@ -15,10 +16,23 @@ type InteractiveService interface {
 	Get(ctx context.Context, biz string, id int64, uid int64) (domain.Interactive, error)
 	LikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error)
 	CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64)
+	GetByIds(ctx context.Context, biz string, ids []int64) (map[int64]domain.Interactive, error)
 }
 
 type interactiveService struct {
 	repo repository.InteractiveRepository
+}
+
+func (i *interactiveService) GetByIds(ctx context.Context, biz string, ids []int64) (map[int64]domain.Interactive, error) {
+	intrArts, err := i.repo.GetByIds(ctx, biz, ids)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[int64]domain.Interactive)
+	for _, art := range intrArts {
+		res[art.BizId] = art
+	}
+	return res, nil
 }
 
 func NewInteractiveService(repo repository.InteractiveRepository) InteractiveService {

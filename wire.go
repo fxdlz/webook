@@ -21,6 +21,12 @@ var interactiveSvcSet = wire.NewSet(
 	dao.NewGORMInteractiveDAO,
 )
 
+var rankingSvcSet = wire.NewSet(
+	cache.NewRankingRedisCache,
+	repository.NewCachedRankingRepository,
+	service.NewBatchRankingService,
+)
+
 func InitApp() *App {
 	wire.Build(
 		ioc.InitLogger,
@@ -39,6 +45,9 @@ func InitApp() *App {
 		service.NewArticleService,
 		service.NewCacheUserService, service.NewCacheCodeService,
 		interactiveSvcSet,
+		rankingSvcSet,
+		ioc.InitRankingJob,
+		ioc.InitJobs,
 		web.NewArticleHandler,
 		jwt.NewRedisJWTHandler,
 		web.NewUserHandler,

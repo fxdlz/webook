@@ -17,10 +17,17 @@ type InteractiveDAO interface {
 	GetCollectInfo(ctx context.Context, biz string, id int64, uid int64) (UserCollectionBiz, error)
 	BatchIncrReadCnt(ctx context.Context, bizs []string, ids []int64) error
 	GetLikeTopN(ctx context.Context, biz string, num int) ([]Interactive, error)
+	GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error)
 }
 
 type GORMInteractiveDAO struct {
 	db *gorm.DB
+}
+
+func (g *GORMInteractiveDAO) GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error) {
+	var res []Interactive
+	err := g.db.WithContext(ctx).Where("biz=? AND biz_id = ?", biz, ids).First(&res).Error
+	return res, err
 }
 
 func (g *GORMInteractiveDAO) GetLikeTopN(ctx context.Context, biz string, num int) ([]Interactive, error) {

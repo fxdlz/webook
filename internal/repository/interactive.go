@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/gotomicro/ekit/slice"
 	"time"
 	"webook/internal/domain"
 	"webook/internal/repository/cache"
@@ -21,12 +22,23 @@ type InteractiveRepository interface {
 	BatchIncrReadCnt(ctx context.Context, bizs []string, ids []int64) error
 	LikeTopN(ctx context.Context, biz string, num int64) ([]domain.InteractiveArticle, error)
 	CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64)
+	GetByIds(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error)
 }
 
 type CachedInteractiveRepository struct {
 	dao   dao.InteractiveDAO
 	cache cache.InteractiveCache
 	log   logger.LoggerV1
+}
+
+func (c *CachedInteractiveRepository) GetByIds(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error) {
+	intrArts, err := c.dao.GetByIds(ctx, biz, ids)
+	if err != nil {
+		return nil, err
+	}
+	return slice.Map(intrArts, func(idx int, src dao.Interactive) domain.Interactive {
+		return c.toDomain(src)
+	}), nil
 }
 
 func (c *CachedInteractiveRepository) CronUpdateCacheLikeTopN(ctx context.Context, biz string, num int64) {
@@ -181,6 +193,7 @@ func (c *CachedInteractiveRepository) BatchIncrReadCnt(ctx context.Context, bizs
 
 func (c *CachedInteractiveRepository) toDomain(ie dao.Interactive) domain.Interactive {
 	return domain.Interactive{
+		BizId:      ie.BizId,
 		ReadCnt:    ie.ReadCnt,
 		LikeCnt:    ie.LikeCnt,
 		CollectCnt: ie.CollectCnt,

@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 	"webook/internal/domain"
 	"webook/internal/events/article"
 	"webook/internal/repository"
 	"webook/pkg/logger"
 )
 
+//go:generate mockgen -source=./article.go -package=svcmocks -destination=./mocks/article.mock.go ArticleService
 type ArticleService interface {
 	Save(ctx context.Context, art domain.Article) (int64, error)
 	Publish(ctx context.Context, art domain.Article) (int64, error)
@@ -16,6 +18,7 @@ type ArticleService interface {
 	GetByAuthor(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
 	GetById(ctx context.Context, id int64) (domain.Article, error)
 	GetPubById(ctx context.Context, uid, id int64) (domain.Article, error)
+	ListPub(ctx context.Context, start time.Time, offset, limit int) ([]domain.Article, error)
 }
 
 type articleService struct {
@@ -25,6 +28,10 @@ type articleService struct {
 	readerRepo repository.ArticleReaderRepository
 	authorRepo repository.ArticleAuthorRepository
 	l          logger.LoggerV1
+}
+
+func (a *articleService) ListPub(ctx context.Context, start time.Time, offset, limit int) ([]domain.Article, error) {
+	return a.repo.ListPub(ctx, start, offset, limit)
 }
 
 func (a *articleService) GetPubById(ctx context.Context, uid, id int64) (domain.Article, error) {

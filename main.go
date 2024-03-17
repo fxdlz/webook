@@ -39,6 +39,10 @@ func main() {
 			panic(err)
 		}
 	}
+	app.cron.Start()
+	defer func() {
+		<-app.cron.Stop().Done()
+	}()
 	server := app.server
 	server.Run(":8080")
 }
