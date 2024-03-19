@@ -8,7 +8,7 @@ import (
 )
 
 type CronJobRepository interface {
-	Preempt(ctx context.Context) (domain.Job, error)
+	Preempt(ctx context.Context, refreshInterval time.Duration) (domain.Job, error)
 	ResetNextTime(ctx context.Context, j domain.Job, t time.Time) error
 	UpdateUtime(ctx context.Context, id int64) error
 	Release(ctx context.Context, id int64) error
@@ -22,8 +22,8 @@ func (p *PreemptJobRepository) Release(ctx context.Context, id int64) error {
 	return p.dao.Release(ctx, id)
 }
 
-func (p *PreemptJobRepository) Preempt(ctx context.Context) (domain.Job, error) {
-	job, err := p.dao.Preempt(ctx)
+func (p *PreemptJobRepository) Preempt(ctx context.Context, refreshInterval time.Duration) (domain.Job, error) {
+	job, err := p.dao.Preempt(ctx, refreshInterval)
 	if err != nil {
 		return domain.Job{}, err
 	}

@@ -20,7 +20,8 @@ type cronJobService struct {
 }
 
 func (c *cronJobService) Preempt(ctx context.Context) (domain.Job, error) {
-	job, err := c.repo.Preempt(ctx)
+	ctx = context.WithValue(ctx, "refreshInterval", c.refreshInterval)
+	job, err := c.repo.Preempt(ctx, c.refreshInterval)
 	if err != nil {
 		return domain.Job{}, err
 	}

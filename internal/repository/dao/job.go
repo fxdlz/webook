@@ -7,7 +7,7 @@ import (
 )
 
 type JobDAO interface {
-	Preempt(ctx context.Context) (Job, error)
+	Preempt(ctx context.Context, refreshInterval time.Duration) (Job, error)
 	Release(ctx context.Context, jid int64) error
 	UpdateNextTime(ctx context.Context, id int64, t time.Time) error
 	UpdateUtime(ctx context.Context, id int64) error
@@ -17,13 +17,14 @@ type GORMJobDAO struct {
 	db *gorm.DB
 }
 
-func (g *GORMJobDAO) Preempt(ctx context.Context) (Job, error) {
+func (g *GORMJobDAO) Preempt(ctx context.Context, refreshInterval time.Duration) (Job, error) {
 	db := g.db.WithContext(ctx)
 	for {
 		var job Job
 		now := time.Now().UnixMilli()
+		endTime := now - refreshInterval.Milliseconds()
 		err := db.WithContext(ctx).
-			Where("status = ? AND next_time < ?", jobStatusWaiting, now).
+			Where("(status = ? AND next_time < ?) OR utime < ?", jobStatusWaiting, now, endTime).
 			First(&job).Error
 		if err != nil {
 			return Job{}, err
@@ -78,7 +79,7 @@ type Job struct {
 	NextTime   int64 `gorm:"index"`
 	Ctime      int64
 	// 更新时间
-	Utime int64
+	Utime int64 `gorm:"index"`
 }
 
 const (
