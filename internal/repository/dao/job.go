@@ -24,6 +24,7 @@ func (g *GORMJobDAO) Preempt(ctx context.Context, refreshInterval time.Duration)
 		now := time.Now().UnixMilli()
 		endTime := now - refreshInterval.Milliseconds()
 		err := db.WithContext(ctx).
+			//增加查询续约失败的情况
 			Where("(status = ? AND next_time < ?) OR utime < ?", jobStatusWaiting, now, endTime).
 			First(&job).Error
 		if err != nil {
