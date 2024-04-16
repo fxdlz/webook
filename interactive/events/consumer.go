@@ -3,7 +3,6 @@ package events
 import (
 	"context"
 	"github.com/IBM/sarama"
-	"github.com/prometheus/client_golang/prometheus"
 	"time"
 	"webook/interactive/repository"
 	"webook/pkg/logger"
@@ -47,19 +46,7 @@ func (i *InteractiveReadEventConsumer) Start() error {
 		return err
 	}
 	go func() {
-		er := cg.Consume(context.Background(), []string{TopicReadEvent}, saramax.NewHandler[ReadEvent](i.l, prometheus.SummaryOpts{
-			Namespace: "fxlz",
-			Subsystem: "webook",
-			Name:      "topic_consume",
-			Help:      "单条消息消费时长统计",
-			Objectives: map[float64]float64{
-				0.5:   0.01,
-				0.75:  0.01,
-				0.9:   0.01,
-				0.99:  0.001,
-				0.999: 0.0001,
-			},
-		}, i.Consume))
+		er := cg.Consume(context.Background(), []string{TopicReadEvent}, saramax.NewHandler[ReadEvent](i.l, i.Consume))
 		if er != nil {
 			i.l.Error("退出消费", logger.Error(er))
 		}
