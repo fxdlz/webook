@@ -4,11 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/gotomicro/ekit/slice"
+	"gorm.io/gorm"
 	"time"
-	"webook/internal/domain"
-	"webook/internal/repository/cache"
-	"webook/internal/repository/dao"
+	"webook/interactive/domain"
+	"webook/interactive/repository/cache"
+	"webook/interactive/repository/dao"
 	"webook/pkg/logger"
+)
+
+var (
+	ErrRecordNotFound = gorm.ErrRecordNotFound
 )
 
 type InteractiveRepository interface {
@@ -117,7 +122,7 @@ func (c *CachedInteractiveRepository) Liked(ctx context.Context, biz string, id 
 	switch err {
 	case nil:
 		return true, nil
-	case dao.ErrRecordNotFound:
+	case ErrRecordNotFound:
 		return false, nil
 	default:
 		return false, err
@@ -129,7 +134,7 @@ func (c *CachedInteractiveRepository) Collected(ctx context.Context, biz string,
 	switch err {
 	case nil:
 		return true, nil
-	case dao.ErrRecordNotFound:
+	case ErrRecordNotFound:
 		return false, nil
 	default:
 		return false, err

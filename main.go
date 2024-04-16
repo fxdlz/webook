@@ -22,9 +22,9 @@ func main() {
 	//for i := 0; i < 1000; i++ {
 	//	tools.Mt.InsertUserN(1000)
 	//}
-	initViper()
+	//initViper()
 	//initViperRemote()
-	//initViperWatch()
+	initViperWatch()
 	initPrometheus()
 	otelCtx := ioc.InitOTEL()
 	defer func() {

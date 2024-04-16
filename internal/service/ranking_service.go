@@ -5,7 +5,9 @@ import (
 	"github.com/ecodeclub/ekit/queue"
 	"github.com/gotomicro/ekit/slice"
 	"log"
+	"math"
 	"time"
+	intrv1 "webook/api/proto/gen/intr/v1"
 	"webook/internal/domain"
 	"webook/internal/repository"
 )
@@ -15,7 +17,7 @@ type RankingService interface {
 }
 
 type BatchRankingService struct {
-	intrSvc   InteractiveService
+	intrSvc   intrv1.InteractiveServiceClient
 	artSvc    ArticleService
 	repo      repository.RankingRepository
 	batchSize int
@@ -23,8 +25,14 @@ type BatchRankingService struct {
 	n         int
 }
 
-func NewBatchRankingService(intrSvc InteractiveService, artSvc ArticleService) RankingService {
-	return &BatchRankingService{intrSvc: intrSvc, artSvc: artSvc}
+func NewBatchRankingService(intrSvc intrv1.InteractiveServiceClient, artSvc ArticleService) RankingService {
+	return &BatchRankingService{
+		intrSvc: intrSvc,
+		artSvc:  artSvc,
+		scoreFunc: func(likeCnt int64, utime time.Time) float64 {
+			duration := time.Since(utime).Seconds()
+			return float64(likeCnt-1) / math.Pow(duration+2, 1.5)
+		}}
 }
 
 func (b *BatchRankingService) TopN(ctx context.Context) error {
@@ -61,10 +69,13 @@ func (b *BatchRankingService) topN(ctx context.Context) ([]domain.Article, error
 		ids := slice.Map(arts, func(idx int, src domain.Article) int64 {
 			return src.Id
 		})
-		intrMap, err := b.intrSvc.GetByIds(ctx, "article", ids)
+		intrResp, err := b.intrSvc.GetByIds(ctx, &intrv1.GetByIdsRequest{
+			Biz: "article", Ids: ids,
+		})
 		if err != nil {
 			return nil, err
 		}
+		intrMap := intrResp.Intrs
 		for _, art := range arts {
 			score := b.scoreFunc(intrMap[art.Id].LikeCnt, art.Utime)
 			entry := Score{

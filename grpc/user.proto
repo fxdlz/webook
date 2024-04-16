@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option go_package = "webook/grpc";
+
+message GetByIdRequest {
+  int32 id = 1;
+}
+
+message User {
+  string name = 1;
+  string phone = 2;
+
+}
+
+message GetByIdResponse {
+  User user = 1;
+}
+
+service UserService {
+  rpc GetById(GetByIdRequest) returns (GetByIdResponse) {}
+}

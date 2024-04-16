@@ -80,3 +80,14 @@ func WrapClaims[Claims jwt.Claims](bizFunc func(ctx *gin.Context, claims Claims)
 		ctx.JSON(http.StatusOK, res)
 	}
 }
+
+func Wrap(fn func(ctx *gin.Context) (Result, error)) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		res, err := fn(ctx)
+		if err != nil {
+			L.Error("执行业务逻辑失败", logger.Error(err))
+		}
+		vector.WithLabelValues(strconv.Itoa(res.Code)).Inc()
+		ctx.JSON(http.StatusOK, res)
+	}
+}

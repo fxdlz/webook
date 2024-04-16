@@ -1,14 +1,13 @@
 package web
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gotomicro/ekit/slice"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/singleflight"
 	"net/http"
 	"strconv"
 	"time"
+	intrv1 "webook/api/proto/gen/intr/v1"
 	"webook/internal/domain"
 	"webook/internal/service"
 	"webook/internal/web/jwt"
@@ -17,12 +16,12 @@ import (
 
 type ArticleHandler struct {
 	svc     service.ArticleService
-	intrSvc service.InteractiveService
+	intrSvc intrv1.InteractiveServiceClient
 	log     logger.LoggerV1
 	biz     string
 }
 
-func NewArticleHandler(svc service.ArticleService, intrSvc service.InteractiveService, log logger.LoggerV1) *ArticleHandler {
+func NewArticleHandler(svc service.ArticleService, intrSvc intrv1.InteractiveServiceClient, log logger.LoggerV1) *ArticleHandler {
 	return &ArticleHandler{
 		svc:     svc,
 		intrSvc: intrSvc,
@@ -42,8 +41,8 @@ func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	pub.GET("/:id", h.PubDetail)
 	pub.POST("/like", h.Like)
 	pub.POST("/collect", h.Collect)
-	pub.GET("/like-top/:num", h.LikeTopN)
-	pub.GET("/cron-cache-like-top/:num", h.CronCacheLikeTopN)
+	//pub.GET("/like-top/:num", h.LikeTopN)
+	//pub.GET("/cron-cache-like-top/:num", h.CronCacheLikeTopN)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
@@ -238,7 +237,7 @@ func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
 	var (
 		eg   errgroup.Group
 		art  domain.Article
-		intr domain.Interactive
+		intr *intrv1.GetResponse
 	)
 
 	uc := ctx.MustGet("user").(jwt.UserClaims)
@@ -251,7 +250,9 @@ func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
 
 	eg.Go(func() error {
 		var er error
-		intr, er = h.intrSvc.Get(ctx, h.biz, id, uc.Uid)
+		intr, er = h.intrSvc.Get(ctx, &intrv1.GetRequest{
+			Biz: h.biz, BizId: id, Uid: uc.Uid,
+		})
 		return er
 	})
 
@@ -283,11 +284,11 @@ func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
 			AuthorId:   art.Author.Id,
 			AuthorName: art.Author.Name,
 			Status:     art.Status.ToUint8(),
-			ReadCnt:    intr.ReadCnt,
-			LikeCnt:    intr.LikeCnt,
-			Liked:      intr.Liked,
-			Collected:  intr.Collected,
-			CollectCnt: intr.CollectCnt,
+			ReadCnt:    intr.Intr.ReadCnt,
+			LikeCnt:    intr.Intr.LikeCnt,
+			Liked:      intr.Intr.Liked,
+			Collected:  intr.Intr.Collected,
+			CollectCnt: intr.Intr.CollectCnt,
 			Ctime:      art.Ctime.Format(time.DateTime),
 			Utime:      art.Utime.Format(time.DateTime),
 		},
@@ -306,9 +307,9 @@ func (h *ArticleHandler) Like(ctx *gin.Context) {
 	uc := ctx.MustGet("user").(jwt.UserClaims)
 	var err error
 	if req.Like {
-		err = h.intrSvc.Like(ctx, h.biz, req.Id, uc.Uid)
+		_, err = h.intrSvc.Like(ctx, &intrv1.LikeRequest{Biz: h.biz, BizId: req.Id, Uid: uc.Uid})
 	} else {
-		err = h.intrSvc.CancelLike(ctx, h.biz, req.Id, uc.Uid)
+		_, err = h.intrSvc.CancelLike(ctx, &intrv1.CancelLikeRequest{Biz: h.biz, Id: req.Id, Uid: uc.Uid})
 	}
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
@@ -337,7 +338,7 @@ func (h *ArticleHandler) Collect(ctx *gin.Context) {
 	}
 	uc := ctx.MustGet("user").(jwt.UserClaims)
 	var err error
-	err = h.intrSvc.Collect(ctx, h.biz, req.Id, req.Cid, uc.Uid)
+	_, err = h.intrSvc.Collect(ctx, &intrv1.CollectRequest{Biz: h.biz, BizId: req.Id, Cid: req.Cid, Uid: uc.Uid})
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
@@ -354,49 +355,49 @@ func (h *ArticleHandler) Collect(ctx *gin.Context) {
 	})
 }
 
-func (h *ArticleHandler) LikeTopN(ctx *gin.Context) {
-	numStr := ctx.Param("num")
-	num, err := strconv.ParseInt(numStr, 10, 64)
-	if err != nil {
-		ctx.JSON(http.StatusOK, Result{
-			Msg:  "num参数错误",
-			Code: 5,
-		})
-		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
-		return
-	}
-	var g singleflight.Group
-	lintrs, err, _ := g.Do(fmt.Sprintf("like:%s:%d", h.biz, num), func() (interface{}, error) {
-		data, er := h.intrSvc.LikeTopN(ctx, h.biz, num)
-		return data, er
-	})
-	if err != nil {
-		ctx.JSON(http.StatusOK, Result{
-			Msg:  "系统错误",
-			Code: 5,
-		})
-		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
-		return
-	}
-	res := lintrs.([]domain.InteractiveArticle)
-	ctx.JSON(http.StatusOK, Result{
-		Data: res,
-	})
-}
-
-func (h *ArticleHandler) CronCacheLikeTopN(ctx *gin.Context) {
-	numStr := ctx.Param("num")
-	num, err := strconv.ParseInt(numStr, 10, 64)
-	if err != nil {
-		ctx.JSON(http.StatusOK, Result{
-			Msg:  "num参数错误",
-			Code: 5,
-		})
-		h.log.Error("启动缓存前N个点赞文章定时任务失败", logger.Error(err))
-		return
-	}
-	h.intrSvc.CronUpdateCacheLikeTopN(ctx, h.biz, num)
-	ctx.JSON(http.StatusOK, Result{
-		Msg: "OK",
-	})
-}
+//func (h *ArticleHandler) LikeTopN(ctx *gin.Context) {
+//	numStr := ctx.Param("num")
+//	num, err := strconv.ParseInt(numStr, 10, 64)
+//	if err != nil {
+//		ctx.JSON(http.StatusOK, Result{
+//			Msg:  "num参数错误",
+//			Code: 5,
+//		})
+//		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
+//		return
+//	}
+//	var g singleflight.Group
+//	lintrs, err, _ := g.Do(fmt.Sprintf("like:%s:%d", h.biz, num), func() (interface{}, error) {
+//		data, er := h.intrSvc.LikeTopN(ctx, h.biz, num)
+//		return data, er
+//	})
+//	if err != nil {
+//		ctx.JSON(http.StatusOK, Result{
+//			Msg:  "系统错误",
+//			Code: 5,
+//		})
+//		h.log.Error("获取前N个点赞文章失败", logger.Error(err))
+//		return
+//	}
+//	res := lintrs.([]domain2.InteractiveArticle)
+//	ctx.JSON(http.StatusOK, Result{
+//		Data: res,
+//	})
+//}
+//
+//func (h *ArticleHandler) CronCacheLikeTopN(ctx *gin.Context) {
+//	numStr := ctx.Param("num")
+//	num, err := strconv.ParseInt(numStr, 10, 64)
+//	if err != nil {
+//		ctx.JSON(http.StatusOK, Result{
+//			Msg:  "num参数错误",
+//			Code: 5,
+//		})
+//		h.log.Error("启动缓存前N个点赞文章定时任务失败", logger.Error(err))
+//		return
+//	}
+//	h.intrSvc.CronUpdateCacheLikeTopN(ctx, h.biz, num)
+//	ctx.JSON(http.StatusOK, Result{
+//		Msg: "OK",
+//	})
+//}

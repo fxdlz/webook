@@ -4,6 +4,11 @@ package main
 
 import (
 	"github.com/google/wire"
+	"webook/interactive/events"
+	repository2 "webook/interactive/repository"
+	cache2 "webook/interactive/repository/cache"
+	dao2 "webook/interactive/repository/dao"
+	service2 "webook/interactive/service"
 	"webook/internal/events/article"
 	"webook/internal/repository"
 	"webook/internal/repository/cache"
@@ -15,10 +20,10 @@ import (
 )
 
 var interactiveSvcSet = wire.NewSet(
-	service.NewInteractiveService,
-	repository.NewCachedInteractiveRepository,
-	cache.NewInteractiveRedisCache,
-	dao.NewGORMInteractiveDAO,
+	service2.NewInteractiveService,
+	repository2.NewCachedInteractiveRepository,
+	cache2.NewInteractiveRedisCache,
+	dao2.NewGORMInteractiveDAO,
 )
 
 var rankingSvcSet = wire.NewSet(
@@ -34,8 +39,9 @@ func InitApp() *App {
 		ioc.InitSaramaClient,
 		ioc.InitSyncProducer,
 		article.NewSaramaSyncProducer,
-		article.NewInteractiveReadEventConsumer,
-		ioc.InitConsumer,
+		events.NewInteractiveReadEventConsumer,
+		ioc.InitConsumers,
+		ioc.InitRlockClient,
 		dao.NewArticleGORMDAO,
 		dao.NewGORMUserDAO, cache.NewRedisUserCache, cache.NewLocalCodeCache, cache.NewArticleRedisCache,
 		repository.NewCacheArticleRepository,
@@ -45,6 +51,7 @@ func InitApp() *App {
 		service.NewArticleService,
 		service.NewCacheUserService, service.NewCacheCodeService,
 		interactiveSvcSet,
+		ioc.InitIntrClient,
 		rankingSvcSet,
 		ioc.InitRankingJob,
 		ioc.InitJobs,
