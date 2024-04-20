@@ -36,6 +36,7 @@ func InitApp() *App {
 	wire.Build(
 		ioc.InitLogger,
 		ioc.InitDB, ioc.InitRedis, ioc.InitLocalMem,
+		ioc.InitEtcd,
 		ioc.InitSaramaClient,
 		ioc.InitSyncProducer,
 		article.NewSaramaSyncProducer,
@@ -51,7 +52,7 @@ func InitApp() *App {
 		service.NewArticleService,
 		service.NewCacheUserService, service.NewCacheCodeService,
 		interactiveSvcSet,
-		ioc.InitIntrClient,
+		ioc.InitIntrClientV1,
 		rankingSvcSet,
 		ioc.InitRankingJob,
 		ioc.InitJobs,

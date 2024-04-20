@@ -11,9 +11,13 @@ kafka:
 grpc:
   client:
     intr:
-      addr: "localhost:8090"
+      addr: "etcd:///service/interactive"
       secure: false
 #      全部都走grpc调用
       threshold: 100
+
+etcd:
+  addrs:
+    - "localhost:12379"
 
 test: "hello,abcd"

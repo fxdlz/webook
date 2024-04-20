@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
@@ -12,9 +11,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"net/http"
-	"time"
 	"webook/internal/middleware"
-	"webook/ioc"
 )
 
 func main() {
@@ -22,16 +19,16 @@ func main() {
 	//for i := 0; i < 1000; i++ {
 	//	tools.Mt.InsertUserN(1000)
 	//}
-	//initViper()
+	initViper()
 	//initViperRemote()
-	initViperWatch()
-	initPrometheus()
-	otelCtx := ioc.InitOTEL()
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		otelCtx(ctx)
-	}()
+	//initViperWatch()
+	//initPrometheus()
+	//otelCtx := ioc.InitOTEL()
+	//defer func() {
+	//	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	//	defer cancel()
+	//	otelCtx(ctx)
+	//}()
 	app := InitApp()
 	for _, c := range app.consumers {
 		err := c.Start()
@@ -39,10 +36,10 @@ func main() {
 			panic(err)
 		}
 	}
-	app.cron.Start()
-	defer func() {
-		<-app.cron.Stop().Done()
-	}()
+	//app.cron.Start()
+	//defer func() {
+	//	<-app.cron.Stop().Done()
+	//}()
 	server := app.server
 	server.Run(":8080")
 }
