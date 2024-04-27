@@ -29,6 +29,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.814
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.0.814
+	go.etcd.io/etcd/client/v3 v3.5.13
 	go.mongodb.org/mongo-driver v1.13.1
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0
 	go.opentelemetry.io/otel v1.24.0
@@ -38,6 +39,8 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.19.0
 	golang.org/x/sync v0.6.0
+	google.golang.org/grpc v1.59.0
+	google.golang.org/protobuf v1.33.0
 	gorm.io/driver/mysql v1.5.2
 	gorm.io/gorm v1.25.5
 	gorm.io/plugin/opentelemetry v0.1.4
@@ -142,7 +145,6 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.13 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.13 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.10 // indirect
-	go.etcd.io/etcd/client/v3 v3.5.13 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
@@ -161,8 +163,6 @@ require (
 	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
-	google.golang.org/grpc v1.59.0 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
