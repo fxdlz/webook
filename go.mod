@@ -2,8 +2,6 @@ module webook
 
 go 1.21
 
-toolchain go1.21.5
-
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.1
 	github.com/IBM/sarama v1.43.0
